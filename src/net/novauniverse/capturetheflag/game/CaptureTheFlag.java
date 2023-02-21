@@ -217,7 +217,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void onEntityDamage(EntityDamageEvent e) {
 		if (e.getEntity() instanceof ArmorStand) {
-			if (teams.stream().filter(t -> t.getFlag().getStand().getUniqueId().equals(e.getEntity().getUniqueId())).findFirst().isPresent()) {
+			if (teams.stream().filter(t -> t.getFlag().isEntityStand(e.getEntity())).findFirst().isPresent()) {
 				e.setCancelled(true);
 			}
 		}
@@ -226,7 +226,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
-			if (teams.stream().filter(t -> t.getFlag().getStand().getUniqueId().equals(e.getRightClicked().getUniqueId())).findFirst().isPresent()) {
+			if (teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().isPresent()) {
 				e.setCancelled(true);
 			}
 		}
@@ -235,7 +235,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
-			if (teams.stream().filter(t -> t.getFlag().getStand().getUniqueId().equals(e.getRightClicked().getUniqueId())).findFirst().isPresent()) {
+			if (teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().isPresent()) {
 				e.setCancelled(true);
 			}
 		}

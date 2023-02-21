@@ -29,12 +29,12 @@ public class CTFTeam {
 		this.flagColor = NovaCaptureTheFlag.getInstance().getTeamFlagColorProvider().getTeamFlagColor(team);
 
 		this.world = world;
-
-		this.flag = new CTFFlag(this);
-
+		
 		this.active = false;
 
 		this.team = team;
+
+		this.flag = new CTFFlag(this);
 	}
 	
 	public void tick() {

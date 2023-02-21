@@ -26,8 +26,6 @@ public class CTFFlag {
 		this.state = FlagState.IN_BASE;
 		this.carrier = null;
 		this.stand = null;
-
-		this.setupArmorStand();
 	}
 
 	public void setupArmorStand() {
@@ -36,6 +34,7 @@ public class CTFFlag {
 			stand.remove();
 		}
 		stand = (ArmorStand) team.getWorld().spawnEntity(team.getFlagLocation(), EntityType.ARMOR_STAND);
+
 		stand.setRemoveWhenFarAway(false);
 		stand.setBasePlate(false);
 		if (carrier == null) {
@@ -45,10 +44,23 @@ public class CTFFlag {
 			stand.setVisible(false);
 			stand.setGravity(false);
 		}
+		stand.teleport(team.getFlagLocation());
+
+		if (state == FlagState.DEACTIVATED || state == FlagState.CAPTURED) {
+			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+			state = FlagState.DEACTIVATED;
+		}
 
 		ItemStack flag = new BannerBuilder(team.getFlagColor()).setAmount(1).build();
 		stand.setHelmet(flag);
 
+	}
+
+	public boolean isEntityStand(Entity entity) {
+		if (stand != null) {
+			return stand.getUniqueId().equals(entity.getUniqueId());
+		}
+		return false;
 	}
 
 	public ArmorStand getStand() {
@@ -80,6 +92,12 @@ public class CTFFlag {
 	}
 
 	public void tick() {
+		if (stand != null) {
+			if (stand.isDead()) {
+				setupArmorStand();
+			}
+		}
+
 		if (carrier != null) {
 			Location location = carrier.getLocation().clone();
 			location.setPitch(0F);
