@@ -81,12 +81,14 @@ public class CTFFlag {
 	}
 
 	public void setCarrier(@Nullable Entity carrier) {
-		if (carrier == null) {
-			stand.setVisible(true);
-			stand.setGravity(true);
-		} else {
-			stand.setVisible(false);
-			stand.setGravity(false);
+		if (stand != null) {
+			if (carrier == null) {
+				stand.setVisible(true);
+				stand.setGravity(true);
+			} else {
+				stand.setVisible(false);
+				stand.setGravity(false);
+			}
 		}
 		this.carrier = carrier;
 	}
@@ -120,15 +122,19 @@ public class CTFFlag {
 		if (carrier != null) {
 			setCarrier(null);
 		}
-		stand.teleport(team.getFlagLocation());
+		if (stand != null) {
+			stand.teleport(team.getFlagLocation());
+		}
 		state = FlagState.IN_BASE;
 	}
 
 	public void deactivate() {
 		Log.trace("CTFFlag", "Deactivating flag for team " + team.getTeam().getDisplayName());
-		stand.setGravity(false);
-		stand.setVisible(false);
-		stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+		if (stand != null) {
+			stand.setGravity(false);
+			stand.setVisible(false);
+			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+		}
 		state = FlagState.DEACTIVATED;
 	}
 
