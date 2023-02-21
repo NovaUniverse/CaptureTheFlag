@@ -1,0 +1,43 @@
+package net.novauniverse.capturetheflag.game.config;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import net.zeeraa.novacore.spigot.gameengine.module.modules.game.map.mapmodule.MapModule;
+import net.zeeraa.novacore.spigot.utils.LocationData;
+import net.zeeraa.novacore.spigot.utils.VectorArea;
+
+public class CaptureTheFlagConfig extends MapModule {
+	private List<CTFConfiguredTeam> configuredTeams;
+	private int flagTpBackY;
+	
+	public CaptureTheFlagConfig(JSONObject json) {
+		super(json);
+		
+		configuredTeams = new ArrayList<>();
+		
+		flagTpBackY = json.getInt("flag_tp_back_y");
+		
+		JSONArray teams = json.getJSONArray("teams");
+		for(int i = 0; i < teams.length(); i++) {
+			JSONObject team = teams.getJSONObject(i);
+			
+			VectorArea flagRoom = VectorArea.fromJSON(team.getJSONObject("flag_room"));
+			LocationData flagLocation = LocationData.fromJSON(team.getJSONObject("flag_location"));
+			LocationData spawnLocation = LocationData.fromJSON(team.getJSONObject("spawn_location"));
+			
+			configuredTeams.add(new CTFConfiguredTeam(flagRoom, flagLocation, spawnLocation));
+		}
+	}
+	
+	public List<CTFConfiguredTeam> getConfiguredTeams() {
+		return configuredTeams;
+	}
+	
+	public int getFlagTpBackY() {
+		return flagTpBackY;
+	}
+}
