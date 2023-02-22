@@ -13,31 +13,37 @@ import net.zeeraa.novacore.spigot.utils.VectorArea;
 public class CaptureTheFlagConfig extends MapModule {
 	private List<CTFConfiguredTeam> configuredTeams;
 	private int flagTpBackY;
-	
+	private int respawnTime;
+
 	public CaptureTheFlagConfig(JSONObject json) {
 		super(json);
-		
+
 		configuredTeams = new ArrayList<>();
-		
+
 		flagTpBackY = json.getInt("flag_tp_back_y");
-		
+		respawnTime = json.getInt("respawn_time");
+
 		JSONArray teams = json.getJSONArray("teams");
-		for(int i = 0; i < teams.length(); i++) {
+		for (int i = 0; i < teams.length(); i++) {
 			JSONObject team = teams.getJSONObject(i);
-			
+
 			VectorArea flagRoom = VectorArea.fromJSON(team.getJSONObject("flag_room"));
 			LocationData flagLocation = LocationData.fromJSON(team.getJSONObject("flag_location"));
 			LocationData spawnLocation = LocationData.fromJSON(team.getJSONObject("spawn_location"));
-			
+
 			configuredTeams.add(new CTFConfiguredTeam(flagRoom, flagLocation, spawnLocation));
 		}
 	}
-	
+
 	public List<CTFConfiguredTeam> getConfiguredTeams() {
 		return configuredTeams;
 	}
-	
+
 	public int getFlagTpBackY() {
 		return flagTpBackY;
+	}
+
+	public int getRespawnTime() {
+		return respawnTime;
 	}
 }

@@ -15,7 +15,9 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -23,9 +25,11 @@ import net.md_5.bungee.api.ChatColor;
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
 import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
+import net.novauniverse.capturetheflag.game.objects.flag.CTFRespawnTimer;
 import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
 import net.zeeraa.novacore.commons.log.Log;
 import net.zeeraa.novacore.commons.tasks.Task;
+import net.zeeraa.novacore.spigot.NovaCore;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.GameEndReason;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.MapGame;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.elimination.PlayerQuitEliminationAction;
@@ -45,6 +49,8 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	private Task tickTask;
 	private Task flagRespawnTask;
 
+	private List<CTFRespawnTimer> respawnTimers;
+
 	public CaptureTheFlag(Plugin plugin) {
 		super(plugin);
 
@@ -52,9 +58,13 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		this.ended = false;
 
 		this.teams = new ArrayList<>();
+		this.respawnTimers = new ArrayList<>();
 
 		this.tickTask = new SimpleTask(plugin, () -> {
+			respawnTimers.forEach(CTFRespawnTimer::tick);
 			teams.forEach(CTFTeam::tick);
+
+			respawnTimers.removeIf(CTFRespawnTimer::shouldRemove);
 		}, 0L);
 
 		this.flagRespawnTask = new SimpleTask(plugin, () -> {
@@ -66,6 +76,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				}
 			});
 		}, 5L);
+	}
+
+	public CaptureTheFlagConfig getConfig() {
+		return config;
 	}
 
 	@Override
@@ -120,6 +134,15 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@Override
 	public boolean canAttack(LivingEntity attacker, LivingEntity target) {
 		return true;
+	}
+
+	public void delayedRespawn(Player player) {
+		tpToSpectator(player);
+
+		int respawnTime = getConfig().getRespawnTime();
+
+		respawnTimers.removeIf(t -> t.getUuid().equals(player.getUniqueId()));
+		respawnTimers.add(new CTFRespawnTimer(player.getUniqueId(), respawnTime * 20, this::tpTpTeam));
 	}
 
 	public void tpTpTeam(Player player) {
@@ -247,6 +270,29 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		return null;
 	}
 
+	@Override
+	public void onPlayerRespawnEvent(PlayerRespawnEvent event) {
+		if (!started) {
+			return;
+		}
+		final Player player = event.getPlayer();
+		event.setRespawnLocation(getActiveMap().getSpectatorLocation());
+
+		Bukkit.getScheduler().scheduleSyncDelayedTask(NovaCore.getInstance(), new Runnable() {
+			@Override
+			public void run() {
+				Log.trace(getName(), "Calling tpToSpectator(" + player.getName() + ")");
+				tpToSpectator(player);
+				teams.stream().filter(t -> t.isMember(player)).findFirst().ifPresent(team -> {
+					if (team.hasFlag()) {
+						Log.trace(getName(), "Calling delayedRespawn(" + player.getName() + ")");
+						delayedRespawn(player);
+					}
+				});
+			}
+		}, 2L);
+	}
+
 	// TODO: do not get in invalid game state if player gets eliminated by other
 	// reasons
 
@@ -270,12 +316,21 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		}
 	}
 
-	@EventHandler
+	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerQuit(PlayerQuitEvent e) {
 		CTFFlag carried = getCarriedFlag(e.getPlayer());
 		if (carried != null) {
 			carried.dropOnGround();
 			// TODO: Message team
+		}
+	}
+
+	@EventHandler(priority = EventPriority.NORMAL)
+	public void onPlayerJoin(PlayerJoinEvent e) {
+		if (started && !ended) {
+			Player player = e.getPlayer();
+			if (isPlayerInGame(player))
+				delayedRespawn(player);
 		}
 	}
 

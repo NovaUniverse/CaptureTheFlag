@@ -17,6 +17,8 @@ import net.zeeraa.novacore.spigot.teams.TeamManager;
 import net.zeeraa.novacore.spigot.utils.BannerBuilder;
 
 public class CTFFlag {
+	public static final double CARRY_Y_OFFSET = 2.1D; 
+	
 	private final CTFTeam team;
 
 	private ArmorStand stand;
@@ -122,6 +124,7 @@ public class CTFFlag {
 		if (carrier != null) {
 			Location location = carrier.getLocation().clone();
 			location.setPitch(0F);
+			location.add(0D, CARRY_Y_OFFSET, 0D);
 			stand.teleport(location);
 		}
 	}
