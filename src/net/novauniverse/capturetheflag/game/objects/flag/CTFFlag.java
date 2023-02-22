@@ -12,6 +12,8 @@ import org.junit.Assert;
 
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
 import net.zeeraa.novacore.commons.log.Log;
+import net.zeeraa.novacore.spigot.teams.Team;
+import net.zeeraa.novacore.spigot.teams.TeamManager;
 import net.zeeraa.novacore.spigot.utils.BannerBuilder;
 
 public class CTFFlag {
@@ -43,6 +45,7 @@ public class CTFFlag {
 		} else {
 			stand.setVisible(false);
 			stand.setGravity(false);
+			stand.setSmall(true);
 		}
 		stand.teleport(team.getFlagLocation());
 
@@ -61,6 +64,18 @@ public class CTFFlag {
 			return stand.getUniqueId().equals(entity.getUniqueId());
 		}
 		return false;
+	}
+
+	public boolean isCarrierEnemy() {
+		if (carrier == null) {
+			Team team = TeamManager.getTeamManager().getPlayerTeam(carrier.getUniqueId());
+			if (team != null) {
+				return !this.getTeam().getTeam().equals(team);
+			}
+			return true;
+		} else {
+			return false;
+		}
 	}
 
 	public ArmorStand getStand() {
@@ -85,9 +100,11 @@ public class CTFFlag {
 			if (carrier == null) {
 				stand.setVisible(true);
 				stand.setGravity(true);
+				stand.setSmall(false);
 			} else {
 				stand.setVisible(false);
 				stand.setGravity(false);
+				stand.setSmall(true);
 			}
 		}
 		this.carrier = carrier;
@@ -98,6 +115,8 @@ public class CTFFlag {
 			if (stand.isDead()) {
 				setupArmorStand();
 			}
+		} else {
+			setupArmorStand();
 		}
 
 		if (carrier != null) {
@@ -141,5 +160,12 @@ public class CTFFlag {
 	public void capture() {
 		deactivate();
 		state = FlagState.CAPTURED;
+	}
+
+	public boolean isCarrier(Entity entity) {
+		if (carrier != null) {
+			return carrier.getUniqueId().equals(entity.getUniqueId());
+		}
+		return false;
 	}
 }

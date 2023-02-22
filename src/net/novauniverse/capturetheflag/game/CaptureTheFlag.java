@@ -10,15 +10,20 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import net.md_5.bungee.api.ChatColor;
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
+import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
+import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
 import net.zeeraa.novacore.commons.log.Log;
 import net.zeeraa.novacore.commons.tasks.Task;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.GameEndReason;
@@ -54,8 +59,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 		this.flagRespawnTask = new SimpleTask(plugin, () -> {
 			teams.stream().filter(CTFTeam::isActive).forEach(team -> {
-				if (team.getFlag().getStand().getLocation().getBlockY() < config.getFlagTpBackY()) {
-					team.getFlag().reclaim();
+				if (team.getFlag().getStand() != null) {
+					if (team.getFlag().getStand().getLocation().getBlockY() < config.getFlagTpBackY()) {
+						team.getFlag().reclaim();
+					}
 				}
 			});
 		}, 5L);
@@ -214,11 +221,80 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		teams.stream().filter(t -> t.getTeam().equals(e.getTeam()) && t.hasFlag()).findFirst().ifPresent(CTFTeam::deactivate);
 	}
 
+	public void handleStandInteraction(Player player, CTFTeam clickedFlagTeam) {
+		if (clickedFlagTeam.isMember(player)) {
+			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND) {
+				// TODO: Recover message
+				clickedFlagTeam.getFlag().setCarrier(player);
+			}
+		} else {
+			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND || clickedFlagTeam.getFlagState() == FlagState.IN_BASE) {
+				// TODO: Capture message
+				clickedFlagTeam.getFlag().setCarrier(player);
+			}
+		}
+	}
+
+	public boolean isCarryingFlag(Player player) {
+		return this.getCarriedFlag(player) != null;
+	}
+
+	public CTFFlag getCarriedFlag(Player player) {
+		CTFTeam team = teams.stream().filter(t -> t.getFlag().isCarrier(player)).findFirst().orElse(null);
+		if (team != null) {
+			return team.getFlag();
+		}
+		return null;
+	}
+
+	// TODO: do not get in invalid game state if player gets eliminated by other
+	// reasons
+
+	@EventHandler
+	public void onPlayerDeath(PlayerDeathEvent e) {
+		CTFFlag carried = getCarriedFlag(e.getEntity());
+		if (carried != null) {
+			if (e.getEntity().getKiller() != null) {
+				Player killer = e.getEntity().getKiller();
+				if (carried.getTeam().isMember(killer)) {
+					carried.setCarrier(killer);
+					// TODO: Pickup message
+				} else {
+					carried.dropOnGround();
+					// TODO: Message team
+				}
+			} else {
+				carried.dropOnGround();
+				// TODO: Message team
+			}
+		}
+	}
+
+	@EventHandler
+	public void onPlayerQuit(PlayerQuitEvent e) {
+		CTFFlag carried = getCarriedFlag(e.getPlayer());
+		if (carried != null) {
+			carried.dropOnGround();
+			// TODO: Message team
+		}
+	}
+
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void onEntityDamage(EntityDamageEvent e) {
 		if (e.getEntity() instanceof ArmorStand) {
-			if (teams.stream().filter(t -> t.getFlag().isEntityStand(e.getEntity())).findFirst().isPresent()) {
+			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getEntity())).findFirst().orElse(null);
+			if (team != null) {
 				e.setCancelled(true);
+			}
+		}
+	}
+
+	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
+	public void onEntityDamagByEntity(EntityDamageByEntityEvent e) {
+		if (e.getEntity() instanceof ArmorStand && e.getDamager() instanceof Player) {
+			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getEntity())).findFirst().orElse(null);
+			if (team != null) {
+				handleStandInteraction((Player) e.getDamager(), team);
 			}
 		}
 	}
@@ -226,8 +302,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
-			if (teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().isPresent()) {
+			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().orElse(null);
+			if (team != null) {
 				e.setCancelled(true);
+				handleStandInteraction(e.getPlayer(), team);
 			}
 		}
 	}
@@ -235,8 +313,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
-			if (teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().isPresent()) {
+			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().orElse(null);
+			if (team != null) {
 				e.setCancelled(true);
+				handleStandInteraction(e.getPlayer(), team);
 			}
 		}
 	}

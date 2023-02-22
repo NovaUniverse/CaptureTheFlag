@@ -2,8 +2,8 @@ package net.novauniverse.capturetheflag.game.config;
 
 import org.bukkit.DyeColor;
 import org.bukkit.Location;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
-
 import net.novauniverse.capturetheflag.NovaCaptureTheFlag;
 import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
 import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
@@ -29,14 +29,18 @@ public class CTFTeam {
 		this.flagColor = NovaCaptureTheFlag.getInstance().getTeamFlagColorProvider().getTeamFlagColor(team);
 
 		this.world = world;
-		
+
 		this.active = false;
 
 		this.team = team;
 
 		this.flag = new CTFFlag(this);
 	}
-	
+
+	public boolean isMember(OfflinePlayer player) {
+		return this.team.isMember(player);
+	}
+
 	public void tick() {
 		flag.tick();
 	}
@@ -48,7 +52,7 @@ public class CTFTeam {
 	public void setActive(boolean active) {
 		this.active = active;
 	}
-	
+
 	public void deactivate() {
 		active = false;
 		flag.deactivate();
@@ -89,7 +93,7 @@ public class CTFTeam {
 	public Location getSpawnLocation() {
 		return spawnLocation;
 	}
-	
+
 	public boolean hasFlag() {
 		FlagState state = getFlagState();
 		return state != FlagState.CAPTURED && state != FlagState.DEACTIVATED;
