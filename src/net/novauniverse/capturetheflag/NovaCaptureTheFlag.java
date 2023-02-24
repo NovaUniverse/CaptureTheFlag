@@ -12,6 +12,7 @@ import org.json.JSONObject;
 
 import net.novauniverse.capturetheflag.game.CaptureTheFlag;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
+import net.novauniverse.capturetheflag.game.tracker.CTFTracker;
 import net.novauniverse.capturetheflag.integration.TeamFlagColorProvider;
 import net.novauniverse.capturetheflag.integration.standard.DefaultTeamFlagColorIntegration;
 import net.zeeraa.novacore.commons.log.Log;
@@ -30,6 +31,7 @@ public class NovaCaptureTheFlag extends JavaPlugin implements Listener {
 	public static NovaCaptureTheFlag instance;
 	private CaptureTheFlag game;
 	private TeamFlagColorProvider teamFlagColorProvider;
+	private CTFTracker tracker;
 
 	public static NovaCaptureTheFlag getInstance() {
 		return instance;
@@ -112,8 +114,12 @@ public class NovaCaptureTheFlag extends JavaPlugin implements Listener {
 			ModuleManager.require(GameLobby.class);
 		}
 
-		this.game = new CaptureTheFlag(instance);
+		game = new CaptureTheFlag(instance);
 		GameManager.getInstance().loadGame(game);
+
+		tracker = new CTFTracker(game);
+		CompassTracker.getInstance().setStrictMode(false);
+		CompassTracker.getInstance().setCompassTrackerTarget(tracker);
 
 		Bukkit.getServer().getPluginManager().registerEvents(this, this);
 		if (!disableGameLobby) {

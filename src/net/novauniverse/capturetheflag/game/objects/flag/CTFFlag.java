@@ -54,10 +54,12 @@ public class CTFFlag {
 		stand.teleport(team.getFlagLocation());
 
 		if (state == FlagState.DEACTIVATED || state == FlagState.CAPTURED) {
-			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+			stand.teleport(new Location(team.getWorld(), 69420, 255, 0));
+			stand.setGravity(false);
 			state = FlagState.DEACTIVATED;
 		} else if (state == FlagState.CAPTURED) {
-			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+			stand.teleport(new Location(team.getWorld(), 69420, 255, 0));
+			stand.setGravity(false);
 		}
 
 		ItemStack flag = new BannerBuilder(team.getFlagColor()).setAmount(1).build();
@@ -73,7 +75,7 @@ public class CTFFlag {
 	}
 
 	public boolean isCarrierEnemy() {
-		if (carrier == null) {
+		if (carrier != null) {
 			Team team = TeamManager.getTeamManager().getPlayerTeam(carrier.getUniqueId());
 			if (team != null) {
 				return !this.getTeam().getTeam().equals(team);
@@ -107,12 +109,14 @@ public class CTFFlag {
 		}
 		if (stand != null) {
 			if (carrier == null) {
+				state = FlagState.ON_GROUND;
 				stand.setVisible(true);
 				stand.setGravity(true);
 				stand.teleport(lastLocation);
 			} else {
+				state = FlagState.CARRIED;
 				stand.setGravity(false);
-				stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+				stand.teleport(new Location(team.getWorld(), 69420, 255, 0));
 				carrier.getInventory().setHelmet(new BannerBuilder(team.getFlagColor()).setAmount(1).build());
 			}
 		}
@@ -176,14 +180,15 @@ public class CTFFlag {
 		if (stand != null) {
 			stand.setGravity(false);
 			stand.setVisible(false);
-			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+			stand.teleport(new Location(team.getWorld(), 69420, 255, 0));
 		}
 		state = FlagState.DEACTIVATED;
 	}
 
 	public void capture() {
-		deactivate();
+		setCarrier(null);
 		state = FlagState.CAPTURED;
+		deactivate();
 	}
 
 	public boolean isCarrier(Entity entity) {

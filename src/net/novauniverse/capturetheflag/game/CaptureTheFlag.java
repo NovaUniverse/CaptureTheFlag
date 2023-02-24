@@ -8,6 +8,7 @@ import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Type;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
@@ -19,6 +20,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -26,11 +28,15 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
 import net.md_5.bungee.api.ChatColor;
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
+import net.novauniverse.capturetheflag.game.event.FlagCapturedEvent;
+import net.novauniverse.capturetheflag.game.event.FlagRecoverEvent;
 import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
 import net.novauniverse.capturetheflag.game.objects.flag.CTFRespawnTimer;
 import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
@@ -38,13 +44,19 @@ import net.zeeraa.novacore.commons.log.Log;
 import net.zeeraa.novacore.commons.tasks.Task;
 import net.zeeraa.novacore.spigot.NovaCore;
 import net.zeeraa.novacore.spigot.abstraction.VersionIndependentUtils;
+import net.zeeraa.novacore.spigot.abstraction.enums.VersionIndependentSound;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.GameEndReason;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.MapGame;
+import net.zeeraa.novacore.spigot.gameengine.module.modules.game.elimination.PlayerEliminationReason;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.elimination.PlayerQuitEliminationAction;
+import net.zeeraa.novacore.spigot.gameengine.module.modules.game.events.PlayerEliminatedEvent;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.events.TeamEliminatedEvent;
+import net.zeeraa.novacore.spigot.module.ModuleManager;
+import net.zeeraa.novacore.spigot.module.modules.compass.CompassTracker;
 import net.zeeraa.novacore.spigot.tasks.SimpleTask;
 import net.zeeraa.novacore.spigot.teams.Team;
 import net.zeeraa.novacore.spigot.teams.TeamManager;
+import net.zeeraa.novacore.spigot.utils.ItemBuilder;
 import net.zeeraa.novacore.spigot.utils.PlayerUtils;
 
 public class CaptureTheFlag extends MapGame implements Listener {
@@ -74,19 +86,31 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			teams.forEach(CTFTeam::tick);
 			teams.stream().filter(CTFTeam::isFlagCarried).forEach(team -> {
 				Player carrier = team.getFlag().getCarrier();
+				carrier.addPotionEffect(new PotionEffect(PotionEffectType.SLOW, 10, 0, false, false), true);
 				if (team.getFlag().isCarrierEnemy()) {
 					teams.stream().filter(t -> t.isMember(carrier)).findFirst().ifPresent(carrierTeam -> {
 						if (carrierTeam.getFlagArea().isInside(carrier)) {
-							// TODO: message
+							carrierTeam.getTeam().sendMessage(ChatColor.GREEN + ChatColor.BOLD.toString() + "Captured the flag of " + team.getTeam().getTeamColor() + ChatColor.BOLD + team.getTeam().getDisplayName());
+							carrierTeam.getTeam().playSound(VersionIndependentSound.ORB_PICKUP);
+
+							team.getTeam().sendMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Your teams flag was captured by " + carrierTeam.getTeam().getTeamColor() + ChatColor.BOLD + carrierTeam.getTeam().getDisplayName());
+							team.getTeam().sendTitle(ChatColor.RED + "Flag captured", ChatColor.GREEN + "You can no longer respawn", 0, 60, 20);
+							team.getTeam().playSound(VersionIndependentSound.WITHER_HURT);
 							flagCaptureEffect(carrier.getLocation(), carrierTeam.getTeam());
 							team.getFlag().capture();
+
+							Bukkit.getServer().getPluginManager().callEvent(new FlagCapturedEvent(team.getFlag(), carrierTeam, carrier));
 						}
 					});
 				} else {
 					if (team.getFlagArea().isInside(carrier)) {
-						// TODO: message
+						// Team recover flag
+						team.getTeam().playSound(VersionIndependentSound.ORB_PICKUP);
+						team.getTeam().sendTitle(ChatColor.GREEN + "Flag recovered", ChatColor.GREEN + "Your teams flag was recovered by " + carrier.getName(), 0, 60, 20);
 						flagCaptureEffect(carrier.getLocation(), team.getTeam());
 						team.getFlag().reclaim();
+
+						Bukkit.getServer().getPluginManager().callEvent(new FlagRecoverEvent(team.getFlag(), carrier));
 					}
 				}
 			});
@@ -120,6 +144,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	public CaptureTheFlagConfig getConfig() {
 		return config;
+	}
+
+	public List<CTFTeam> getTeams() {
+		return teams;
 	}
 
 	@Override
@@ -201,6 +229,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				PlayerUtils.clearPotionEffects(player);
 				PlayerUtils.resetPlayerXP(player);
 
+				player.getInventory().setItem(0, new ItemBuilder(Material.STONE_SWORD).setAmount(1).setUnbreakable(true).build());
+				player.getInventory().setItem(8, new ItemBuilder(Material.COMPASS).setAmount(1).setUnbreakable(true).build());
+				player.getInventory().setChestplate(new ItemBuilder(Material.LEATHER_CHESTPLATE).setLeatherArmorColor(team.getTeamColor()).setAmount(1).setUnbreakable(true).build());
+
 				new BukkitRunnable() {
 					@Override
 					public void run() {
@@ -216,6 +248,8 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		if (started) {
 			return;
 		}
+
+		ModuleManager.enable(CompassTracker.class);
 
 		CaptureTheFlagConfig cfg = (CaptureTheFlagConfig) this.getActiveMap().getMapData().getMapModule(CaptureTheFlagConfig.class);
 		if (cfg == null) {
@@ -285,10 +319,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	}
 
 	public void handleStandInteraction(Player player, CTFTeam clickedFlagTeam) {
-		if(getCarriedFlag(player) != null) {
+		if (getCarriedFlag(player) != null) {
 			return;
 		}
-		
+
 		if (clickedFlagTeam.isMember(player)) {
 			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND) {
 				// TODO: Recover message
@@ -341,24 +375,47 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	// TODO: do not get in invalid game state if player gets eliminated by other
 	// reasons
+	@EventHandler(priority = EventPriority.NORMAL)
+	public void onPlayerEliminated(PlayerEliminatedEvent e) {
+		if (e.getReason() == PlayerEliminationReason.DEATH) {
+			return;
+		}
+
+		if (e.getReason() == PlayerEliminationReason.KILLED) {
+			return;
+		}
+
+		PlayerUtils.ifOnline(e.getPlayer().getUniqueId(), player -> {
+			CTFFlag flag = getCarriedFlag(player);
+			if (flag != null) {
+				flag.dropOnGround();
+			}
+		});
+	}
 
 	@EventHandler
 	public void onPlayerDeath(PlayerDeathEvent e) {
+		e.setKeepInventory(true);
 		e.getEntity().setGameMode(GameMode.SPECTATOR);
 		CTFFlag carried = getCarriedFlag(e.getEntity());
 		if (carried != null) {
 			if (e.getEntity().getKiller() != null) {
 				Player killer = e.getEntity().getKiller();
 				if (carried.getTeam().isMember(killer)) {
+					CTFFlag alreadyCarried = getCarriedFlag(killer);
+					if (alreadyCarried != null) {
+						alreadyCarried.dropOnGround();
+					}
+					VersionIndependentSound.ORB_PICKUP.play(killer);
 					carried.setCarrier(killer);
-					// TODO: Pickup message
+					killer.sendMessage(ChatColor.GREEN + ChatColor.BOLD.toString() + "Picked up your teams flag. Run back to your base to reclaim it");
 				} else {
+					// Killed enemy carrying other flag
 					carried.dropOnGround();
-					// TODO: Message team
 				}
 			} else {
+				// something else
 				carried.dropOnGround();
-				// TODO: Message team
 			}
 		}
 	}
@@ -419,6 +476,15 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			if (team != null) {
 				e.setCancelled(true);
 				handleStandInteraction(e.getPlayer(), team);
+			}
+		}
+	}
+
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void onInventoryClick(InventoryClickEvent e) {
+		if (started && !ended) {
+			if (e.getWhoClicked().getGameMode() != GameMode.CREATIVE) {
+				e.setCancelled(true);
 			}
 		}
 	}
