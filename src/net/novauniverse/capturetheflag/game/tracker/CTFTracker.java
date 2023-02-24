@@ -5,6 +5,7 @@ import org.bukkit.entity.Player;
 import net.md_5.bungee.api.ChatColor;
 import net.novauniverse.capturetheflag.game.CaptureTheFlag;
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
+import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
 import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
 import net.zeeraa.novacore.spigot.gameengine.compass.trackers.ClosestEnemyPlayerTracker;
 import net.zeeraa.novacore.spigot.module.modules.compass.CompassTarget;
@@ -41,6 +42,11 @@ public class CTFTracker implements CompassTrackerTarget {
 				}
 			} else if (state == FlagState.ON_GROUND) {
 				return new CompassTarget(team.getFlag().getStand().getLocation(), ChatColor.GREEN + "Tracking your flag");
+			}
+			
+			CTFFlag carriedFlag = ctf.getCarriedFlag(player);
+			if(carriedFlag != null) {
+				return new CompassTarget(team.getSpawnLocation(), ChatColor.GREEN + "Tracking home base");	
 			}
 		}
 		return fallbackTracker.getCompassTarget(player);

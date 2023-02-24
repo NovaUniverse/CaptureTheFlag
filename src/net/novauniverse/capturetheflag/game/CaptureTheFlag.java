@@ -325,12 +325,20 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 		if (clickedFlagTeam.isMember(player)) {
 			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND) {
-				// TODO: Recover message
+				VersionIndependentSound.ORB_PICKUP.play(player);
+				player.sendMessage(ChatColor.GREEN + ChatColor.BOLD.toString() + "Picked up your flag. Run back to your base to recover it");
+				player.sendMessage(ChatColor.GOLD + "Use your compass to find your base");
 				clickedFlagTeam.getFlag().setCarrier(player);
 			}
 		} else {
 			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND || clickedFlagTeam.getFlagState() == FlagState.IN_BASE) {
-				// TODO: Capture message
+				ChatColor teamColor = TeamManager.getTeamManager().tryGetPlayerTeamColor(player, ChatColor.AQUA);
+				String teamName = TeamManager.getTeamManager().tryGetTeamDisplayName(player, "Unknown");
+
+				clickedFlagTeam.getTeam().playSound(VersionIndependentSound.BLAZE_HIT);
+				clickedFlagTeam.getTeam().sendMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Your flag was picked up by " + teamColor + ChatColor.BOLD + player.getName() + ChatColor.RED + ChatColor.BOLD + " from team " + teamColor + ChatColor.BOLD + teamName);
+				clickedFlagTeam.getTeam().sendMessage(ChatColor.GOLD + "Use your compass to track your flag");
+				clickedFlagTeam.getTeam().sendTitle(ChatColor.RED + "Flag picked up", ChatColor.RED + "Your flag was picked up by " + teamColor + player.getName(), 0, 60, 20);
 				clickedFlagTeam.getFlag().setCarrier(player);
 			}
 		}
@@ -373,8 +381,6 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		}, 2L);
 	}
 
-	// TODO: do not get in invalid game state if player gets eliminated by other
-	// reasons
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerEliminated(PlayerEliminatedEvent e) {
 		if (e.getReason() == PlayerEliminationReason.DEATH) {
@@ -388,6 +394,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		PlayerUtils.ifOnline(e.getPlayer().getUniqueId(), player -> {
 			CTFFlag flag = getCarriedFlag(player);
 			if (flag != null) {
+				flag.getTeam().getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your flag was dropped on the ground since the carrier was eliminated");
 				flag.dropOnGround();
 			}
 		});
@@ -411,10 +418,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 					killer.sendMessage(ChatColor.GREEN + ChatColor.BOLD.toString() + "Picked up your teams flag. Run back to your base to reclaim it");
 				} else {
 					// Killed enemy carrying other flag
+					carried.getTeam().getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your flag was dropped on the ground");
 					carried.dropOnGround();
 				}
 			} else {
-				// something else
+				carried.getTeam().getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your flag was dropped on the ground since the carrier died");
 				carried.dropOnGround();
 			}
 		}
@@ -425,7 +433,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		CTFFlag carried = getCarriedFlag(e.getPlayer());
 		if (carried != null) {
 			carried.dropOnGround();
-			// TODO: Message team
+			carried.getTeam().getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your flag was dropped on the ground since the carrier left");
 		}
 	}
 
