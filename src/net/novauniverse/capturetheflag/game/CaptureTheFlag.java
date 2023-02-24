@@ -4,7 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.bukkit.Bukkit;
+import org.bukkit.FireworkEffect;
+import org.bukkit.FireworkEffect.Type;
+import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Firework;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -18,6 +24,7 @@ import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 
@@ -30,6 +37,7 @@ import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
 import net.zeeraa.novacore.commons.log.Log;
 import net.zeeraa.novacore.commons.tasks.Task;
 import net.zeeraa.novacore.spigot.NovaCore;
+import net.zeeraa.novacore.spigot.abstraction.VersionIndependentUtils;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.GameEndReason;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.MapGame;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.elimination.PlayerQuitEliminationAction;
@@ -62,7 +70,26 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 		this.tickTask = new SimpleTask(plugin, () -> {
 			respawnTimers.forEach(CTFRespawnTimer::tick);
+
 			teams.forEach(CTFTeam::tick);
+			teams.stream().filter(CTFTeam::isFlagCarried).forEach(team -> {
+				Player carrier = team.getFlag().getCarrier();
+				if (team.getFlag().isCarrierEnemy()) {
+					teams.stream().filter(t -> t.isMember(carrier)).findFirst().ifPresent(carrierTeam -> {
+						if (carrierTeam.getFlagArea().isInside(carrier)) {
+							// TODO: message
+							flagCaptureEffect(carrier.getLocation(), carrierTeam.getTeam());
+							team.getFlag().capture();
+						}
+					});
+				} else {
+					if (team.getFlagArea().isInside(carrier)) {
+						// TODO: message
+						flagCaptureEffect(carrier.getLocation(), team.getTeam());
+						team.getFlag().reclaim();
+					}
+				}
+			});
 
 			respawnTimers.removeIf(CTFRespawnTimer::shouldRemove);
 		}, 0L);
@@ -76,6 +103,19 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				}
 			});
 		}, 5L);
+	}
+
+	public void flagCaptureEffect(Location location, Team team) {
+		Firework firework = (Firework) location.getWorld().spawnEntity(location, EntityType.FIREWORK);
+		FireworkMeta meta = firework.getFireworkMeta();
+		meta.addEffect(FireworkEffect.builder().with(Type.BALL_LARGE).withColor(VersionIndependentUtils.get().bungeecordChatColorToBukkitColor(team.getTeamColor())).trail(true).build());
+		firework.setFireworkMeta(meta);
+		new BukkitRunnable() {
+			@Override
+			public void run() {
+				firework.detonate();
+			}
+		}.runTaskLater(getPlugin(), 1L);
 	}
 
 	public CaptureTheFlagConfig getConfig() {
@@ -149,12 +189,12 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		TeamManager.getTeamManager().ifHasTeam(player, team -> {
 			teams.stream().filter(t -> t.getTeam().equals(team)).findAny().ifPresent(ctfTeam -> {
 				player.teleport(ctfTeam.getSpawnLocation());
-
 				player.setHealth(20D);
 				player.setFallDistance(0F);
 				player.setFireTicks(0);
 				player.setFoodLevel(20);
 				player.setSaturation(20F);
+				player.setGameMode(GameMode.SURVIVAL);
 
 				PlayerUtils.resetMaxHealth(player);
 				PlayerUtils.clearPlayerInventory(player);
@@ -245,6 +285,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	}
 
 	public void handleStandInteraction(Player player, CTFTeam clickedFlagTeam) {
+		if(getCarriedFlag(player) != null) {
+			return;
+		}
+		
 		if (clickedFlagTeam.isMember(player)) {
 			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND) {
 				// TODO: Recover message
@@ -276,7 +320,9 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			return;
 		}
 		final Player player = event.getPlayer();
+
 		event.setRespawnLocation(getActiveMap().getSpectatorLocation());
+		player.setGameMode(GameMode.SPECTATOR);
 
 		Bukkit.getScheduler().scheduleSyncDelayedTask(NovaCore.getInstance(), new Runnable() {
 			@Override
@@ -298,6 +344,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	@EventHandler
 	public void onPlayerDeath(PlayerDeathEvent e) {
+		e.getEntity().setGameMode(GameMode.SPECTATOR);
 		CTFFlag carried = getCarriedFlag(e.getEntity());
 		if (carried != null) {
 			if (e.getEntity().getKiller() != null) {

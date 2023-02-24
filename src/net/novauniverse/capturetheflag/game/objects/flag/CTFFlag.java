@@ -7,6 +7,7 @@ import org.bukkit.Location;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.junit.Assert;
 
@@ -15,21 +16,25 @@ import net.zeeraa.novacore.commons.log.Log;
 import net.zeeraa.novacore.spigot.teams.Team;
 import net.zeeraa.novacore.spigot.teams.TeamManager;
 import net.zeeraa.novacore.spigot.utils.BannerBuilder;
+import net.zeeraa.novacore.spigot.utils.ItemBuilder;
 
 public class CTFFlag {
-	public static final double CARRY_Y_OFFSET = 2.1D; 
-	
 	private final CTFTeam team;
 
 	private ArmorStand stand;
 	private FlagState state;
-	private Entity carrier;
+	private Player carrier;
+
+	private Location lastLocation;
+	private Location lastGroundLocation;
 
 	public CTFFlag(CTFTeam team) {
 		this.team = team;
 		this.state = FlagState.IN_BASE;
 		this.carrier = null;
 		this.stand = null;
+		this.lastLocation = null;
+		this.lastGroundLocation = null;
 	}
 
 	public void setupArmorStand() {
@@ -41,19 +46,18 @@ public class CTFFlag {
 
 		stand.setRemoveWhenFarAway(false);
 		stand.setBasePlate(false);
-		if (carrier == null) {
-			stand.setVisible(true);
-			stand.setGravity(true);
-		} else {
-			stand.setVisible(false);
-			stand.setGravity(false);
-			stand.setSmall(true);
-		}
+		stand.setVisible(true);
+		stand.setGravity(true);
+
+		lastLocation = team.getFlagLocation();
+		lastGroundLocation = team.getFlagLocation();
 		stand.teleport(team.getFlagLocation());
 
 		if (state == FlagState.DEACTIVATED || state == FlagState.CAPTURED) {
 			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
 			state = FlagState.DEACTIVATED;
+		} else if (state == FlagState.CAPTURED) {
+			stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
 		}
 
 		ItemStack flag = new BannerBuilder(team.getFlagColor()).setAmount(1).build();
@@ -93,25 +97,38 @@ public class CTFFlag {
 	}
 
 	@Nullable
-	public Entity getCarrier() {
+	public Player getCarrier() {
 		return carrier;
 	}
 
-	public void setCarrier(@Nullable Entity carrier) {
+	public void setCarrier(@Nullable Player carrier) {
+		if (carrier == null && this.carrier != null) {
+			this.carrier.getInventory().setHelmet(ItemBuilder.AIR);
+		}
 		if (stand != null) {
 			if (carrier == null) {
 				stand.setVisible(true);
 				stand.setGravity(true);
-				stand.setSmall(false);
+				stand.teleport(lastLocation);
 			} else {
-				stand.setVisible(false);
 				stand.setGravity(false);
-				stand.setSmall(true);
+				stand.teleport(new Location(team.getWorld(), 69420, 0, 0));
+				carrier.getInventory().setHelmet(new BannerBuilder(team.getFlagColor()).setAmount(1).build());
 			}
 		}
 		this.carrier = carrier;
 	}
 
+	public void returnToLastGroundLocation() {
+		if (lastGroundLocation != null) {
+			if (stand != null) {
+				dropOnGround();
+				stand.teleport(lastGroundLocation);
+			}
+		}
+	}
+
+	@SuppressWarnings("deprecation")
 	public void tick() {
 		if (stand != null) {
 			if (stand.isDead()) {
@@ -122,14 +139,18 @@ public class CTFFlag {
 		}
 
 		if (carrier != null) {
-			Location location = carrier.getLocation().clone();
-			location.setPitch(0F);
-			location.add(0D, CARRY_Y_OFFSET, 0D);
-			stand.teleport(location);
+			lastLocation = carrier.getLocation();
+			if (carrier.isOnGround()) {
+				lastGroundLocation = carrier.getLocation();
+			}
+			// Location location = carrier.getLocation().clone();
+			// location.setPitch(0F);
+			// location.add(0D, CARRY_Y_OFFSET, 0D);
+			// stand.teleport(location);
 		}
 	}
 
-	public void capture(@Nonnull Entity carrier) {
+	public void pickUp(@Nonnull Player carrier) {
 		Assert.assertNotNull(carrier);
 		setCarrier(carrier);
 		state = FlagState.CARRIED;

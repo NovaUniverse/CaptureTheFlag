@@ -4,6 +4,7 @@ import org.bukkit.DyeColor;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
+
 import net.novauniverse.capturetheflag.NovaCaptureTheFlag;
 import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
 import net.novauniverse.capturetheflag.game.objects.flag.FlagState;
@@ -97,5 +98,9 @@ public class CTFTeam {
 	public boolean hasFlag() {
 		FlagState state = getFlagState();
 		return state != FlagState.CAPTURED && state != FlagState.DEACTIVATED;
+	}
+
+	public boolean isFlagCarried() {
+		return getFlagState() == FlagState.CARRIED;
 	}
 }
