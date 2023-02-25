@@ -27,6 +27,7 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -60,6 +61,9 @@ import net.zeeraa.novacore.spigot.gameengine.module.modules.game.elimination.Pla
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.elimination.PlayerQuitEliminationAction;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.events.PlayerEliminatedEvent;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.events.TeamEliminatedEvent;
+import net.zeeraa.novacore.spigot.gameengine.module.modules.game.triggers.GameTrigger;
+import net.zeeraa.novacore.spigot.gameengine.module.modules.game.triggers.TriggerCallback;
+import net.zeeraa.novacore.spigot.gameengine.module.modules.game.triggers.TriggerFlag;
 import net.zeeraa.novacore.spigot.module.ModuleManager;
 import net.zeeraa.novacore.spigot.module.modules.compass.CompassTracker;
 import net.zeeraa.novacore.spigot.tasks.SimpleTask;
@@ -350,12 +354,18 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			}
 		});
 
+		GameTrigger suddenDeathTrigger = new GameTrigger("ctf.suddendeath", new TriggerCallback() {
+			@Override
+			public void run(GameTrigger trigger, TriggerFlag reason) {
+				startSuddenDeath();
+			}
+		});
+		suddenDeathTrigger.setDescription("Instantly activate sudden death");
+		suddenDeathTrigger.addFlag(TriggerFlag.RUN_ONLY_ONCE);
+		addTrigger(suddenDeathTrigger);
+
 		suddenDeathTask = new TimeBasedTask(() -> {
-			suddenDeathActive = true;
-			VersionIndependentSound.WITHER_HURT.broadcast();
-			VersionIndependentUtils.get().broadcastTitle(ChatColor.RED + "Sudden death", ChatColor.RED + "Players will no longer respawn", 0, 60, 20);
-			Bukkit.getServer().broadcastMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Sudden death. Players will no longer respawn");
-			Bukkit.getServer().getPluginManager().callEvent(new CaptureTheFlagSuddenDeathEvent());
+			startSuddenDeath();
 		}, getPlugin(), config.getSuddenDeathTime() * 1000, true);
 
 		teams.stream().filter(t -> !t.isActive()).forEach(CTFTeam::deactivate);
@@ -377,6 +387,18 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		}
 
 		sendBeginEvent();
+	}
+
+	public void startSuddenDeath() {
+		if (suddenDeathActive) {
+			return;
+		}
+		Task.tryStopTask(suddenDeathTask);
+		suddenDeathActive = true;
+		VersionIndependentSound.WITHER_HURT.broadcast();
+		VersionIndependentUtils.get().broadcastTitle(ChatColor.RED + "Sudden death", ChatColor.RED + "Players will no longer respawn", 0, 60, 20);
+		Bukkit.getServer().broadcastMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Sudden death. Players will no longer respawn");
+		Bukkit.getServer().getPluginManager().callEvent(new CaptureTheFlagSuddenDeathEvent());
 	}
 
 	@Override
@@ -481,6 +503,15 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				flag.dropOnGround();
 			}
 		});
+	}
+
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void onPlayerDropItem(PlayerDropItemEvent e) {
+		if (started && !ended) {
+			if (e.getPlayer().getGameMode() != GameMode.CREATIVE) {
+				e.setCancelled(true);
+			}
+		}
 	}
 
 	@EventHandler
