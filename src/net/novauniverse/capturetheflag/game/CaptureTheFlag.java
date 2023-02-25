@@ -40,6 +40,7 @@ import net.brunogamer.novacore.spigot.utils.ColorUtils;
 import net.md_5.bungee.api.ChatColor;
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
+import net.novauniverse.capturetheflag.game.event.CaptureTheFlagSuddenDeathEvent;
 import net.novauniverse.capturetheflag.game.event.FlagCapturedEvent;
 import net.novauniverse.capturetheflag.game.event.FlagRecoverEvent;
 import net.novauniverse.capturetheflag.game.objects.flag.CTFFlag;
@@ -60,6 +61,7 @@ import net.zeeraa.novacore.spigot.gameengine.module.modules.game.events.TeamElim
 import net.zeeraa.novacore.spigot.module.ModuleManager;
 import net.zeeraa.novacore.spigot.module.modules.compass.CompassTracker;
 import net.zeeraa.novacore.spigot.tasks.SimpleTask;
+import net.zeeraa.novacore.spigot.tasks.TimeBasedTask;
 import net.zeeraa.novacore.spigot.teams.Team;
 import net.zeeraa.novacore.spigot.teams.TeamManager;
 import net.zeeraa.novacore.spigot.utils.ItemBuilder;
@@ -74,9 +76,12 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	private Task tickTask;
 	private Task flagRespawnTask;
+	private TimeBasedTask suddenDeathTask;
 
 	private List<CTFRespawnTimer> respawnTimers;
 	private List<Consumer<Player>> tpToSpawnCallbacks;
+
+	private boolean suddenDeathActive;
 
 	public CaptureTheFlag(Plugin plugin) {
 		super(plugin);
@@ -87,6 +92,8 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		this.teams = new ArrayList<>();
 		this.respawnTimers = new ArrayList<>();
 		this.tpToSpawnCallbacks = new ArrayList<>();
+		this.suddenDeathTask = null;
+		this.suddenDeathActive = false;
 
 		this.tickTask = new SimpleTask(plugin, () -> {
 			respawnTimers.forEach(CTFRespawnTimer::tick);
@@ -183,10 +190,15 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	@Override
 	public boolean eliminatePlayerOnDeath(Player player) {
+		if (suddenDeathActive) {
+			return true;
+		}
+
 		Team team = TeamManager.getTeamManager().getPlayerTeam(player);
 		if (team != null) {
 			return !teams.stream().anyMatch(t -> t.getTeam().equals(team) && t.hasFlag());
 		}
+		
 		return true;
 	}
 
@@ -271,6 +283,14 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		return new ItemBuilder(ColoredBlockType.WOOL, color).setAmount(1).build();
 	}
 
+	public boolean isSuddenDeathActive() {
+		return suddenDeathActive;
+	}
+	
+	public TimeBasedTask getSuddenDeathTask() {
+		return suddenDeathTask;
+	}
+
 	@Override
 	public void onStart() {
 		if (started) {
@@ -323,10 +343,19 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			}
 		});
 
+		suddenDeathTask = new TimeBasedTask(() -> {
+			suddenDeathActive = true;
+			VersionIndependentSound.WITHER_HURT.broadcast();
+			VersionIndependentUtils.get().broadcastTitle(ChatColor.RED + "Sudden death", ChatColor.RED + "Players will no longer respawn", 0, 60, 20);
+			Bukkit.getServer().broadcastMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Sudden death. Players will no longer respawn");
+			Bukkit.getServer().getPluginManager().callEvent(new CaptureTheFlagSuddenDeathEvent());
+		}, getPlugin(), config.getSuddenDeathTime() * 1000, true);
+
 		teams.stream().filter(t -> !t.isActive()).forEach(CTFTeam::deactivate);
 
 		Task.tryStartTask(tickTask);
 		Task.tryStartTask(flagRespawnTask);
+		Task.tryStartTask(suddenDeathTask);
 
 		started = true;
 
@@ -351,6 +380,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 		Task.tryStopTask(tickTask);
 		Task.tryStopTask(flagRespawnTask);
+		Task.tryStopTask(suddenDeathTask);
 
 		ended = true;
 	}

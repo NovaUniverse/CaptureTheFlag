@@ -19,6 +19,8 @@ public class CaptureTheFlagConfig extends MapModule {
 	private boolean debug;
 	private boolean useActionBar;
 	
+	private int suddenDeathTime;
+	
 	public CaptureTheFlagConfig(JSONObject json) {
 		super(json);
 
@@ -28,6 +30,7 @@ public class CaptureTheFlagConfig extends MapModule {
 		respawnTime = json.getInt("respawn_time");
 		useActionBar = json.optBoolean("use_action_bar", true);
 		debug = json.optBoolean("debug", false);
+		suddenDeathTime = json.getInt("sudden_death_time");
 
 		JSONArray teams = json.getJSONArray("teams");
 		for (int i = 0; i < teams.length(); i++) {
@@ -59,5 +62,9 @@ public class CaptureTheFlagConfig extends MapModule {
 	
 	public boolean isUseActionBar() {
 		return useActionBar;
+	}
+	
+	public int getSuddenDeathTime() {
+		return suddenDeathTime;
 	}
 }
