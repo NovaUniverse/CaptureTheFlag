@@ -2,8 +2,10 @@ package net.novauniverse.capturetheflag.game;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import org.bukkit.Bukkit;
+import org.bukkit.DyeColor;
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Type;
 import org.bukkit.GameMode;
@@ -17,6 +19,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -26,12 +29,14 @@ import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import net.brunogamer.novacore.spigot.utils.ColorUtils;
 import net.md_5.bungee.api.ChatColor;
 import net.novauniverse.capturetheflag.game.config.CTFTeam;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
@@ -44,6 +49,7 @@ import net.zeeraa.novacore.commons.log.Log;
 import net.zeeraa.novacore.commons.tasks.Task;
 import net.zeeraa.novacore.spigot.NovaCore;
 import net.zeeraa.novacore.spigot.abstraction.VersionIndependentUtils;
+import net.zeeraa.novacore.spigot.abstraction.enums.ColoredBlockType;
 import net.zeeraa.novacore.spigot.abstraction.enums.VersionIndependentSound;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.GameEndReason;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.MapGame;
@@ -70,6 +76,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	private Task flagRespawnTask;
 
 	private List<CTFRespawnTimer> respawnTimers;
+	private List<Consumer<Player>> tpToSpawnCallbacks;
 
 	public CaptureTheFlag(Plugin plugin) {
 		super(plugin);
@@ -79,6 +86,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 		this.teams = new ArrayList<>();
 		this.respawnTimers = new ArrayList<>();
+		this.tpToSpawnCallbacks = new ArrayList<>();
 
 		this.tickTask = new SimpleTask(plugin, () -> {
 			respawnTimers.forEach(CTFRespawnTimer::tick);
@@ -115,6 +123,13 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				}
 			});
 
+			if (config.isUseActionBar()) {
+				teams.stream().filter(t -> t.getFlag().hasCarrier()).forEach(team -> {
+					Player carrier = team.getFlag().getCarrier();
+					VersionIndependentUtils.get().sendActionBarMessage(carrier, ChatColor.GREEN + "Carrying " + team.getTeam().getTeamColor() + team.getTeam().getDisplayName() + "'s" + ChatColor.GREEN + " flag");
+				});
+			}
+
 			respawnTimers.removeIf(CTFRespawnTimer::shouldRemove);
 		}, 0L);
 
@@ -122,6 +137,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			teams.stream().filter(CTFTeam::isActive).forEach(team -> {
 				if (team.getFlag().getStand() != null) {
 					if (team.getFlag().getStand().getLocation().getBlockY() < config.getFlagTpBackY()) {
+						team.getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your teams flag was respawned in your base since it was dropped in an inaccessible location");
 						team.getFlag().reclaim();
 					}
 				}
@@ -230,8 +246,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				PlayerUtils.resetPlayerXP(player);
 
 				player.getInventory().setItem(0, new ItemBuilder(Material.STONE_SWORD).setAmount(1).setUnbreakable(true).build());
+				player.getInventory().setItem(1, new ItemBuilder(Material.SHEARS).setAmount(1).setUnbreakable(true).build());
 				player.getInventory().setItem(8, new ItemBuilder(Material.COMPASS).setAmount(1).setUnbreakable(true).build());
 				player.getInventory().setChestplate(new ItemBuilder(Material.LEATHER_CHESTPLATE).setLeatherArmorColor(team.getTeamColor()).setAmount(1).setUnbreakable(true).build());
+
+				tpToSpawnCallbacks.forEach(c -> c.accept(player));
 
 				new BukkitRunnable() {
 					@Override
@@ -241,6 +260,15 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				}.runTaskLater(getPlugin(), 5L);
 			});
 		});
+	}
+
+	public ItemStack getWoolItemStack(Player player) {
+		DyeColor color = DyeColor.WHITE;
+		Team team = TeamManager.getTeamManager().getPlayerTeam(player);
+		if (team != null) {
+			color = ColorUtils.getDyeColorByChatColor(team.getTeamColor());
+		}
+		return new ItemBuilder(ColoredBlockType.WOOL, color).setAmount(1).build();
 	}
 
 	@Override
@@ -263,14 +291,18 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		List<Team> teamsLeft = new ArrayList<>();
 		TeamManager.getTeamManager().getTeams().forEach(teamsLeft::add);
 
+		Log.trace("CTF", "Ititial teams left: " + teamsLeft.size());
+
 		config.getConfiguredTeams().forEach(team -> {
 			if (teamsLeft.size() > 0) {
 				teams.add(new CTFTeam(team, teamsLeft.remove(0), world));
 			}
 		});
 
+		Log.trace("CTF", "Final teams left: " + teamsLeft.size());
+
 		if (teamsLeft.size() > 0) {
-			Log.error("CaptureTheFlag", teamsLeft.size() + " teams could not be set up due to the map not having enough configured spawn points. Some players might now spawn correctly");
+			Log.error("CaptureTheFlag", teamsLeft.size() + "/" + TeamManager.getTeamManager().getTeamCount() + " teams could not be set up due to the map not having enough configured spawn points. Some players might now spawn correctly. " + teamsLeft.size() + " teams left");
 		}
 
 		players.forEach(p -> {
@@ -297,6 +329,16 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		Task.tryStartTask(flagRespawnTask);
 
 		started = true;
+
+		VersionIndependentUtils.get().setGameRule(world, "doTileDrops", "false");
+
+		if (config.isDebug()) {
+			teams.forEach(team -> {
+				team.getFlagLocation().getBlock().setType(Material.IRON_BLOCK);
+				team.getSpawnLocation().getBlock().setType(Material.DIAMOND_BLOCK);
+				team.getFlagArea().getOutline().forEach(v -> v.toLocation(world).getBlock().setType(Material.REDSTONE_BLOCK));
+			});
+		}
 
 		sendBeginEvent();
 	}
@@ -334,6 +376,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			if (clickedFlagTeam.getFlagState() == FlagState.ON_GROUND || clickedFlagTeam.getFlagState() == FlagState.IN_BASE) {
 				ChatColor teamColor = TeamManager.getTeamManager().tryGetPlayerTeamColor(player, ChatColor.AQUA);
 				String teamName = TeamManager.getTeamManager().tryGetTeamDisplayName(player, "Unknown");
+
+				VersionIndependentSound.ORB_PICKUP.play(player);
+				player.sendMessage(ChatColor.GREEN + ChatColor.BOLD.toString() + "Picked up enemy flag. Run back to your base to capture it");
+				player.sendMessage(ChatColor.GOLD + "Use your compass to find your base");
 
 				clickedFlagTeam.getTeam().playSound(VersionIndependentSound.BLAZE_HIT);
 				clickedFlagTeam.getTeam().sendMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Your flag was picked up by " + teamColor + ChatColor.BOLD + player.getName() + ChatColor.RED + ChatColor.BOLD + " from team " + teamColor + ChatColor.BOLD + teamName);
@@ -411,7 +457,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				if (carried.getTeam().isMember(killer)) {
 					CTFFlag alreadyCarried = getCarriedFlag(killer);
 					if (alreadyCarried != null) {
-						alreadyCarried.dropOnGround();
+						alreadyCarried.dropOnGround(false);
 					}
 					VersionIndependentSound.ORB_PICKUP.play(killer);
 					carried.setCarrier(killer);
@@ -419,13 +465,18 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				} else {
 					// Killed enemy carrying other flag
 					carried.getTeam().getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your flag was dropped on the ground");
-					carried.dropOnGround();
+					carried.dropOnGround(true);
 				}
 			} else {
 				carried.getTeam().getTeam().sendMessage(ChatColor.YELLOW + ChatColor.BOLD.toString() + "Your flag was dropped on the ground since the carrier died");
-				carried.dropOnGround();
+				carried.dropOnGround(true);
 			}
 		}
+	}
+
+	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+	public void onBlockBreak(BlockBreakEvent e) {
+		e.getBlock().getDrops().clear();
 	}
 
 	@EventHandler(priority = EventPriority.NORMAL)
@@ -495,5 +546,13 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				e.setCancelled(true);
 			}
 		}
+	}
+
+	public List<Consumer<Player>> getTpToSpawnCallbacks() {
+		return tpToSpawnCallbacks;
+	}
+
+	public void addPlayerTpToTeamCallback(Consumer<Player> callback) {
+		tpToSpawnCallbacks.add(callback);
 	}
 }

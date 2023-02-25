@@ -12,6 +12,7 @@ import org.json.JSONObject;
 
 import net.novauniverse.capturetheflag.game.CaptureTheFlag;
 import net.novauniverse.capturetheflag.game.config.CaptureTheFlagConfig;
+import net.novauniverse.capturetheflag.game.mapmodules.GiveWoolSlow;
 import net.novauniverse.capturetheflag.game.tracker.CTFTracker;
 import net.novauniverse.capturetheflag.integration.TeamFlagColorProvider;
 import net.novauniverse.capturetheflag.integration.standard.DefaultTeamFlagColorIntegration;
@@ -107,6 +108,7 @@ public class NovaCaptureTheFlag extends JavaPlugin implements Listener {
 		boolean disableGameLobby = getConfig().getBoolean("DisableGameLobby");
 
 		MapModuleManager.addMapModule("capturetheflag.config", CaptureTheFlagConfig.class);
+		MapModuleManager.addMapModule("capturetheflag.givewoolslow", GiveWoolSlow.class);
 
 		ModuleManager.require(CompassTracker.class);
 		ModuleManager.require(GameManager.class);
