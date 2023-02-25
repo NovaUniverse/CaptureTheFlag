@@ -45,7 +45,7 @@ public class CTFTeam {
 	public void tick() {
 		flag.tick();
 	}
-
+	
 	public boolean isActive() {
 		return active;
 	}

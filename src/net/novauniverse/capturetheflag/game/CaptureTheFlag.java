@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import javax.annotation.Nullable;
+
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.FireworkEffect;
@@ -198,7 +200,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		if (team != null) {
 			return !teams.stream().anyMatch(t -> t.getTeam().equals(team) && t.hasFlag());
 		}
-		
+
 		return true;
 	}
 
@@ -230,6 +232,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@Override
 	public boolean canAttack(LivingEntity attacker, LivingEntity target) {
 		return true;
+	}
+
+	@Nullable
+	public CTFTeam getPlayerTeam(Player player) {
+		return teams.stream().filter(t -> t.isMember(player)).findFirst().orElse(null);
 	}
 
 	public void delayedRespawn(Player player) {
@@ -286,7 +293,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	public boolean isSuddenDeathActive() {
 		return suddenDeathActive;
 	}
-	
+
 	public TimeBasedTask getSuddenDeathTask() {
 		return suddenDeathTask;
 	}
@@ -520,10 +527,23 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerJoin(PlayerJoinEvent e) {
+		if (suddenDeathActive) {
+			return;
+		}
+
 		if (started && !ended) {
 			Player player = e.getPlayer();
-			if (isPlayerInGame(player))
+
+			CTFTeam team = getPlayerTeam(player);
+			if (team != null) {
+				if (!team.hasFlag()) {
+					return;
+				}
+			}
+
+			if (isPlayerInGame(player)) {
 				delayedRespawn(player);
+			}
 		}
 	}
 
