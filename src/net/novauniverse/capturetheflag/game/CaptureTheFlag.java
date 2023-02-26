@@ -82,6 +82,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	private Task tickTask;
 	private Task flagRespawnTask;
+	private Task foodTask;
 	private TimeBasedTask suddenDeathTask;
 
 	private List<CTFRespawnTimer> respawnTimers;
@@ -100,6 +101,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		this.tpToSpawnCallbacks = new ArrayList<>();
 		this.suddenDeathTask = null;
 		this.suddenDeathActive = false;
+
+		this.foodTask = new SimpleTask(getPlugin(), () -> {
+			Bukkit.getServer().getOnlinePlayers().forEach(p -> p.setFoodLevel(20));
+		}, 10L);
 
 		this.tickTask = new SimpleTask(plugin, () -> {
 			respawnTimers.forEach(CTFRespawnTimer::tick);
@@ -373,6 +378,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		Task.tryStartTask(tickTask);
 		Task.tryStartTask(flagRespawnTask);
 		Task.tryStartTask(suddenDeathTask);
+		Task.tryStartTask(foodTask);
 
 		started = true;
 
@@ -410,6 +416,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		Task.tryStopTask(tickTask);
 		Task.tryStopTask(flagRespawnTask);
 		Task.tryStopTask(suddenDeathTask);
+		Task.tryStopTask(foodTask);
 
 		ended = true;
 	}
