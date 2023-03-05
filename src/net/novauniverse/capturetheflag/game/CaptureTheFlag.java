@@ -598,6 +598,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void onEntityDamagByEntity(EntityDamageByEntityEvent e) {
 		if (e.getEntity() instanceof ArmorStand && e.getDamager() instanceof Player) {
+			if(((Player)e.getDamager()).getGameMode() == GameMode.SPECTATOR) {
+				e.setCancelled(true);
+				return;
+			}
 			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getEntity())).findFirst().orElse(null);
 			if (team != null) {
 				handleStandInteraction((Player) e.getDamager(), team);
@@ -608,6 +612,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
+			if(e.getPlayer().getGameMode() == GameMode.SPECTATOR) {
+				e.setCancelled(true);
+				return;
+			}
+			
 			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().orElse(null);
 			if (team != null) {
 				e.setCancelled(true);
@@ -619,6 +628,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
+			if(e.getPlayer().getGameMode() == GameMode.SPECTATOR) {
+				e.setCancelled(true);
+				return;
+			}
+			
 			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().orElse(null);
 			if (team != null) {
 				e.setCancelled(true);
