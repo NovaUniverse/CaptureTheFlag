@@ -5,7 +5,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
 import org.json.JSONObject;
 
 import net.novauniverse.capturetheflag.NovaCaptureTheFlag;
@@ -14,10 +13,8 @@ import net.zeeraa.novacore.commons.tasks.Task;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.Game;
 import net.zeeraa.novacore.spigot.gameengine.module.modules.game.map.mapmodule.MapModule;
 import net.zeeraa.novacore.spigot.tasks.SimpleTask;
-import net.zeeraa.novacore.spigot.utils.ItemBuilder;
 
 public class GiveWoolSlow extends MapModule {
-
 	private final SimpleTask task;
 	private final int maxItems;
 	private final int tickBetweenItem;

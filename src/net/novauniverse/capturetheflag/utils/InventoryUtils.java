@@ -3,18 +3,11 @@ package net.novauniverse.capturetheflag.utils;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
-
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class InventoryUtils {
-
-
 	public static int ammountOfItem(Player toCheck, Material material) {
 		List<Integer> slots = slotsWith(toCheck.getInventory(), material);
 		int ammount = 0;
@@ -25,7 +18,6 @@ public class InventoryUtils {
 		if (toCheck.getItemOnCursor().getType() == material) {
 			ammount += toCheck.getItemOnCursor().getAmount();
 		}
-
 
 		return ammount;
 	}

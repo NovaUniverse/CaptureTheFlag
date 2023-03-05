@@ -1,8 +1,6 @@
 package net.novauniverse.capturetheflag.game;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
@@ -30,9 +28,7 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.DragType;
-import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryType;
@@ -127,7 +123,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			if (ofp.isOnline()) {
 				Player player = ofp.getPlayer();
 				if (player.getGameMode() != GameMode.SPECTATOR && player.getGameMode() != GameMode.CREATIVE && !player.isDead()) {
-					Inventory iv = Bukkit.createInventory(null,36);
+					Inventory iv = Bukkit.createInventory(null, 36);
 					for (int i = 0; i < 36; i++) {
 						iv.setItem(i, player.getInventory().getItem(i));
 					}
@@ -311,10 +307,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 					player.getInventory().setItem(8, new ItemBuilder(Material.COMPASS).setAmount(1).setUnbreakable(true).build());
 				} else {
 					Inventory iv = inventoryPreset.get(player);
-					for (int i = 0; i < 36; i ++) {
+					for (int i = 0; i < 36; i++) {
 						if (iv.getItem(i) != null) {
 							if (iv.getItem(i).getType() == Material.WOOL) {
-								player.getInventory().setItem(i,new ItemBuilder(getWoolItemStack(player)).setAmount(16).build());
+								player.getInventory().setItem(i, new ItemBuilder(getWoolItemStack(player)).setAmount(16).build());
 							} else {
 								player.getInventory().setItem(i, iv.getItem(i));
 							}
@@ -324,7 +320,6 @@ public class CaptureTheFlag extends MapGame implements Listener {
 						player.getInventory().addItem(new ItemBuilder(getWoolItemStack(player)).setAmount(16).build());
 					}
 				}
-
 
 				tpToSpawnCallbacks.forEach(c -> c.accept(player));
 
@@ -653,7 +648,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void onEntityDamagByEntity(EntityDamageByEntityEvent e) {
 		if (e.getEntity() instanceof ArmorStand && e.getDamager() instanceof Player) {
-			if(((Player)e.getDamager()).getGameMode() == GameMode.SPECTATOR || ((Player)e.getDamager()).getGameMode() == GameMode.CREATIVE) {
+			if (((Player) e.getDamager()).getGameMode() == GameMode.SPECTATOR || ((Player) e.getDamager()).getGameMode() == GameMode.CREATIVE) {
 				e.setCancelled(true);
 				return;
 			}
@@ -667,7 +662,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
-			if(e.getPlayer().getGameMode() == GameMode.SPECTATOR || e.getPlayer().getGameMode() == GameMode.CREATIVE) {
+			if (e.getPlayer().getGameMode() == GameMode.SPECTATOR || e.getPlayer().getGameMode() == GameMode.CREATIVE) {
 				e.setCancelled(true);
 				return;
 			}
@@ -705,18 +700,18 @@ public class CaptureTheFlag extends MapGame implements Listener {
 			}
 
 			switch (e.getAction()) {
-				case PLACE_ALL:
-				case PICKUP_ALL:
-				case HOTBAR_SWAP:
-				case SWAP_WITH_CURSOR:
-				case MOVE_TO_OTHER_INVENTORY:
-				case HOTBAR_MOVE_AND_READD:
-				case COLLECT_TO_CURSOR:
-					e.setCancelled(false);
-					break;
-				default:
-					e.setCancelled(true);
-					break;
+			case PLACE_ALL:
+			case PICKUP_ALL:
+			case HOTBAR_SWAP:
+			case SWAP_WITH_CURSOR:
+			case MOVE_TO_OTHER_INVENTORY:
+			case HOTBAR_MOVE_AND_READD:
+			case COLLECT_TO_CURSOR:
+				e.setCancelled(false);
+				break;
+			default:
+				e.setCancelled(true);
+				break;
 			}
 		}
 	}

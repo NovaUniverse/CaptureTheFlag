@@ -12,7 +12,7 @@ import net.zeeraa.novacore.spigot.utils.PlayerUtils;
 
 public class CTFRespawnTimer {
 	private static final DecimalFormat df = new DecimalFormat("0.0");
-	
+
 	private final UUID uuid;
 	private final Consumer<Player> onDone;
 	private int ticksLeft;

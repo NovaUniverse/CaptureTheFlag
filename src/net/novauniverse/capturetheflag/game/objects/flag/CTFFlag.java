@@ -52,7 +52,7 @@ public class CTFFlag {
 		stand.setRemoveWhenFarAway(false);
 		stand.setBasePlate(false);
 		stand.setVisible(true);
-		//stand.setGravity(true);
+		// stand.setGravity(true);
 		stand.setGravity(false);
 		stand.setCustomName(team.getTeam().getTeamColor() + team.getTeam().getDisplayName() + "'s" + ChatColor.GREEN + " flag");
 		stand.setCustomNameVisible(true);
@@ -127,7 +127,7 @@ public class CTFFlag {
 			if (carrier == null) {
 				state = FlagState.ON_GROUND;
 				stand.setVisible(true);
-				//stand.setGravity(true);
+				// stand.setGravity(true);
 				stand.teleport(lastLocation);
 			} else {
 				state = FlagState.CARRIED;

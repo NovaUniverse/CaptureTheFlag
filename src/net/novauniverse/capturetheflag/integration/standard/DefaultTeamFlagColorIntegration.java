@@ -22,7 +22,7 @@ public class DefaultTeamFlagColorIntegration implements TeamFlagColorProvider {
 		case AQUA:
 			return DyeColor.LIGHT_BLUE;
 
-			case DARK_AQUA:
+		case DARK_AQUA:
 			return DyeColor.CYAN;
 
 		case DARK_GRAY:
@@ -47,7 +47,7 @@ public class DefaultTeamFlagColorIntegration implements TeamFlagColorProvider {
 		case LIGHT_PURPLE:
 			return DyeColor.MAGENTA;
 
-			case WHITE:
+		case WHITE:
 			return DyeColor.WHITE;
 
 		case YELLOW:

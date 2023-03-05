@@ -43,10 +43,10 @@ public class CTFTracker implements CompassTrackerTarget {
 			} else if (state == FlagState.ON_GROUND) {
 				return new CompassTarget(team.getFlag().getStand().getLocation(), ChatColor.GREEN + "Tracking your flag");
 			}
-			
+
 			CTFFlag carriedFlag = ctf.getCarriedFlag(player);
-			if(carriedFlag != null) {
-				return new CompassTarget(team.getSpawnLocation(), ChatColor.GREEN + "Tracking home base");	
+			if (carriedFlag != null) {
+				return new CompassTarget(team.getSpawnLocation(), ChatColor.GREEN + "Tracking home base");
 			}
 		}
 		return fallbackTracker.getCompassTarget(player);

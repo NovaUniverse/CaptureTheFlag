@@ -12,15 +12,15 @@ import net.zeeraa.novacore.spigot.utils.VectorArea;
 
 public class CaptureTheFlagConfig extends MapModule {
 	private List<CTFConfiguredTeam> configuredTeams;
-	
+
 	private int flagTpBackY;
 	private int respawnTime;
 
 	private boolean debug;
 	private boolean useActionBar;
-	
+
 	private int suddenDeathTime;
-	
+
 	public CaptureTheFlagConfig(JSONObject json) {
 		super(json);
 
@@ -55,15 +55,15 @@ public class CaptureTheFlagConfig extends MapModule {
 	public int getRespawnTime() {
 		return respawnTime;
 	}
-	
+
 	public boolean isDebug() {
 		return debug;
 	}
-	
+
 	public boolean isUseActionBar() {
 		return useActionBar;
 	}
-	
+
 	public int getSuddenDeathTime() {
 		return suddenDeathTime;
 	}
