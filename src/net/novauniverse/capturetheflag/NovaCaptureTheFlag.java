@@ -3,9 +3,14 @@ package net.novauniverse.capturetheflag;
 import java.io.File;
 import java.io.IOException;
 
+import net.zeeraa.novacore.spigot.command.AllowedSenders;
+import net.zeeraa.novacore.spigot.debug.DebugCommandRegistrator;
+import net.zeeraa.novacore.spigot.debug.DebugTrigger;
 import org.apache.commons.io.FileUtils;
 import org.bukkit.Bukkit;
+import org.bukkit.command.CommandSender;
 import org.bukkit.event.Listener;
+import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -53,12 +58,14 @@ public class NovaCaptureTheFlag extends JavaPlugin implements Listener {
 	@Override
 	public void onEnable() {
 		NovaCaptureTheFlag.instance = this;
+		saveDefaultConfig();
 
 		this.teamFlagColorProvider = new DefaultTeamFlagColorIntegration();
 
 		boolean combatTagging = getConfig().getBoolean("CombatTagging");
 		GameManager.getInstance().setUseCombatTagging(combatTagging);
 		Log.info("CaptureTheFlag", "Combat tagging " + (combatTagging ? "enabled" : "disabled"));
+
 
 		File mapFolder = new File(this.getDataFolder().getPath() + File.separator + "Maps");
 		File worldFolder = new File(this.getDataFolder().getPath() + File.separator + "Worlds");

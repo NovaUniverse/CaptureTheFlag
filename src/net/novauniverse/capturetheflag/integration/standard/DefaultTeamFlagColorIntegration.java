@@ -13,6 +13,7 @@ public class DefaultTeamFlagColorIntegration implements TeamFlagColorProvider {
 			return DyeColor.BLACK;
 
 		case DARK_BLUE:
+		case BLUE:
 			return DyeColor.BLUE;
 
 		case GOLD:
@@ -21,10 +22,7 @@ public class DefaultTeamFlagColorIntegration implements TeamFlagColorProvider {
 		case AQUA:
 			return DyeColor.LIGHT_BLUE;
 
-		case BLUE:
-			return DyeColor.BLUE;
-
-		case DARK_AQUA:
+			case DARK_AQUA:
 			return DyeColor.CYAN;
 
 		case DARK_GRAY:
@@ -37,6 +35,7 @@ public class DefaultTeamFlagColorIntegration implements TeamFlagColorProvider {
 			return DyeColor.PURPLE;
 
 		case DARK_RED:
+		case RED:
 			return DyeColor.RED;
 
 		case GRAY:
@@ -48,10 +47,7 @@ public class DefaultTeamFlagColorIntegration implements TeamFlagColorProvider {
 		case LIGHT_PURPLE:
 			return DyeColor.MAGENTA;
 
-		case RED:
-			return DyeColor.WHITE;
-
-		case WHITE:
+			case WHITE:
 			return DyeColor.WHITE;
 
 		case YELLOW:
