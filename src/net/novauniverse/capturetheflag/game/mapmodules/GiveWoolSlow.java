@@ -1,7 +1,9 @@
 package net.novauniverse.capturetheflag.game.mapmodules;
 
+import net.novauniverse.capturetheflag.utils.InventoryUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.json.JSONObject;
@@ -15,7 +17,6 @@ import net.zeeraa.novacore.spigot.tasks.SimpleTask;
 import net.zeeraa.novacore.spigot.utils.ItemBuilder;
 
 public class GiveWoolSlow extends MapModule {
-	public static final int WOOL_SLOT = 2;
 
 	private final SimpleTask task;
 	private final int maxItems;
@@ -32,20 +33,11 @@ public class GiveWoolSlow extends MapModule {
 
 		task = new SimpleTask(NovaCaptureTheFlag.getInstance(), () -> {
 			Bukkit.getServer().getOnlinePlayers().stream().filter(this::shouldCheck).forEach(player -> {
-				ItemStack item = player.getInventory().getItem(WOOL_SLOT);
-				if (item == null) {
-					player.getInventory().setItem(WOOL_SLOT, ctf.getWoolItemStack(player));
-				} else {
-					if (item.getAmount() < maxItems) {
-						item.setAmount(item.getAmount() + 1);
-					}
+				if (InventoryUtils.ammountOfItem(player, Material.WOOL) < maxItems) {
+					player.getInventory().addItem(ctf.getWoolItemStack(player));
 				}
 			});
 		}, tickBetweenItem, tickBetweenItem);
-
-		ctf.addPlayerTpToTeamCallback((player) -> {
-			player.getInventory().setItem(GiveWoolSlow.WOOL_SLOT, new ItemBuilder(ctf.getWoolItemStack(player)).setAmount(16).build());
-		});
 	}
 
 	private boolean shouldCheck(Player player) {
@@ -53,11 +45,7 @@ public class GiveWoolSlow extends MapModule {
 			return false;
 		}
 
-		if (player.getGameMode() == GameMode.SPECTATOR) {
-			return false;
-		}
-
-		if (player.getGameMode() == GameMode.CREATIVE) {
+		if (player.getGameMode() == GameMode.SPECTATOR || player.getGameMode() == GameMode.CREATIVE) {
 			return false;
 		}
 

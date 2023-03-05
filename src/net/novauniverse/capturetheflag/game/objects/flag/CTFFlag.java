@@ -61,7 +61,7 @@ public class CTFFlag {
 		lastGroundLocation = team.getFlagLocation();
 		stand.teleport(team.getFlagLocation());
 
-		if (state == FlagState.DEACTIVATED || state == FlagState.CAPTURED) {
+		if (state == FlagState.DEACTIVATED) {
 			stand.teleport(new Location(team.getWorld(), 69420, 255, 0));
 			stand.setGravity(false);
 			state = FlagState.DEACTIVATED;

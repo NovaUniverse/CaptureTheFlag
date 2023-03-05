@@ -1,11 +1,15 @@
 package net.novauniverse.capturetheflag.game;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
+import net.novauniverse.capturetheflag.utils.InventoryUtils;
 import org.bukkit.Bukkit;
 import org.bukkit.DyeColor;
 import org.bukkit.FireworkEffect;
@@ -13,6 +17,7 @@ import org.bukkit.FireworkEffect.Type;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.ArmorStand;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Firework;
@@ -25,13 +30,19 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.DragType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.plugin.Plugin;
@@ -80,9 +91,13 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	private CaptureTheFlagConfig config;
 	private List<CTFTeam> teams;
 
+	private HashMap<Player, Inventory> inventoryPreset;
+
 	private Task tickTask;
 	private Task flagRespawnTask;
 	private Task foodTask;
+
+	private Task invSaveTask;
 	private TimeBasedTask suddenDeathTask;
 
 	private List<CTFRespawnTimer> respawnTimers;
@@ -101,10 +116,25 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		this.tpToSpawnCallbacks = new ArrayList<>();
 		this.suddenDeathTask = null;
 		this.suddenDeathActive = false;
+		this.inventoryPreset = new HashMap<>();
 
 		this.foodTask = new SimpleTask(getPlugin(), () -> {
 			Bukkit.getServer().getOnlinePlayers().forEach(p -> p.setFoodLevel(20));
 		}, 10L);
+
+		this.invSaveTask = new SimpleTask(getPlugin(), () -> teams.stream().forEach(ctfTeam -> ctfTeam.getTeam().getMembers().forEach(uuid -> {
+			OfflinePlayer ofp = Bukkit.getOfflinePlayer(uuid);
+			if (ofp.isOnline()) {
+				Player player = ofp.getPlayer();
+				if (player.getGameMode() != GameMode.SPECTATOR && player.getGameMode() != GameMode.CREATIVE && !player.isDead()) {
+					Inventory iv = Bukkit.createInventory(null,36);
+					for (int i = 0; i < 36; i++) {
+						iv.setItem(i, player.getInventory().getItem(i));
+					}
+					inventoryPreset.put(player, iv);
+				}
+			}
+		})), 20L);
 
 		this.tickTask = new SimpleTask(plugin, () -> {
 			respawnTimers.forEach(CTFRespawnTimer::tick);
@@ -254,10 +284,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		int respawnTime = getConfig().getRespawnTime();
 
 		respawnTimers.removeIf(t -> t.getUuid().equals(player.getUniqueId()));
-		respawnTimers.add(new CTFRespawnTimer(player.getUniqueId(), respawnTime * 20, this::tpTpTeam));
+		respawnTimers.add(new CTFRespawnTimer(player.getUniqueId(), respawnTime * 20, this::tpToTeam));
 	}
 
-	public void tpTpTeam(Player player) {
+	public void tpToTeam(Player player) {
 		TeamManager.getTeamManager().ifHasTeam(player, team -> {
 			teams.stream().filter(t -> t.getTeam().equals(team)).findAny().ifPresent(ctfTeam -> {
 				player.teleport(ctfTeam.getSpawnLocation());
@@ -273,10 +303,28 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				PlayerUtils.clearPotionEffects(player);
 				PlayerUtils.resetPlayerXP(player);
 
-				player.getInventory().setItem(0, new ItemBuilder(Material.STONE_SWORD).setAmount(1).setUnbreakable(true).build());
-				player.getInventory().setItem(1, new ItemBuilder(Material.SHEARS).setAmount(1).setUnbreakable(true).build());
-				player.getInventory().setItem(8, new ItemBuilder(Material.COMPASS).setAmount(1).setUnbreakable(true).build());
 				player.getInventory().setChestplate(new ItemBuilder(Material.LEATHER_CHESTPLATE).setLeatherArmorColor(team.getTeamColor()).setAmount(1).setUnbreakable(true).build());
+				if (!inventoryPreset.containsKey(player)) {
+					player.getInventory().setItem(0, new ItemBuilder(Material.STONE_SWORD).setAmount(1).setUnbreakable(true).build());
+					player.getInventory().setItem(1, new ItemBuilder(Material.SHEARS).setAmount(1).setUnbreakable(true).build());
+					player.getInventory().setItem(2, new ItemBuilder(getWoolItemStack(player)).setAmount(16).build());
+					player.getInventory().setItem(8, new ItemBuilder(Material.COMPASS).setAmount(1).setUnbreakable(true).build());
+				} else {
+					Inventory iv = inventoryPreset.get(player);
+					for (int i = 0; i < 36; i ++) {
+						if (iv.getItem(i) != null) {
+							if (iv.getItem(i).getType() == Material.WOOL) {
+								player.getInventory().setItem(i,new ItemBuilder(getWoolItemStack(player)).setAmount(16).build());
+							} else {
+								player.getInventory().setItem(i, iv.getItem(i));
+							}
+						}
+					}
+					if (InventoryUtils.slotsWith(iv, Material.WOOL).isEmpty()) {
+						player.getInventory().addItem(new ItemBuilder(getWoolItemStack(player)).setAmount(16).build());
+					}
+				}
+
 
 				tpToSpawnCallbacks.forEach(c -> c.accept(player));
 
@@ -324,10 +372,9 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		}
 		this.config = cfg;
 
-		List<Team> teamsLeft = new ArrayList<>();
-		TeamManager.getTeamManager().getTeams().forEach(teamsLeft::add);
+		List<Team> teamsLeft = new ArrayList<>(TeamManager.getTeamManager().getTeams());
 
-		Log.trace("CTF", "Ititial teams left: " + teamsLeft.size());
+		Log.trace("CTF", "Initial teams left: " + teamsLeft.size());
 
 		config.getConfiguredTeams().forEach(team -> {
 			if (teamsLeft.size() > 0) {
@@ -351,7 +398,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 					CTFTeam ctfTeam = teams.stream().filter(t -> t.getTeam().equals(team)).findAny().orElse(null);
 					if (ctfTeam != null) {
 						ctfTeam.setActive(true);
-						tpTpTeam(player);
+						tpToTeam(player);
 					} else {
 						player.sendMessage(ChatColor.RED + "Failed to add you to the game since the maps does not have enough spawn points");
 					}
@@ -369,9 +416,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		suddenDeathTrigger.addFlag(TriggerFlag.RUN_ONLY_ONCE);
 		addTrigger(suddenDeathTrigger);
 
-		suddenDeathTask = new TimeBasedTask(() -> {
-			startSuddenDeath();
-		}, getPlugin(), config.getSuddenDeathTime() * 1000, true);
+		suddenDeathTask = new TimeBasedTask(this::startSuddenDeath, getPlugin(), config.getSuddenDeathTime() * 1000L, true);
 
 		teams.stream().filter(t -> !t.isActive()).forEach(CTFTeam::deactivate);
 
@@ -379,6 +424,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		Task.tryStartTask(flagRespawnTask);
 		Task.tryStartTask(suddenDeathTask);
 		Task.tryStartTask(foodTask);
+		Task.tryStartTask(invSaveTask);
 
 		started = true;
 
@@ -401,6 +447,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		}
 		Task.tryStopTask(suddenDeathTask);
 		suddenDeathActive = true;
+		teams.forEach(ctfTeam -> {
+			ctfTeam.getFlag().setCarrier(null);
+			ctfTeam.deactivate();
+
+		});
 		VersionIndependentSound.WITHER_HURT.broadcast();
 		VersionIndependentUtils.get().broadcastTitle(ChatColor.RED + "Sudden death", ChatColor.RED + "Players will no longer respawn", 0, 60, 20);
 		Bukkit.getServer().broadcastMessage(ChatColor.RED + ChatColor.BOLD.toString() + "Sudden death. Players will no longer respawn");
@@ -417,6 +468,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		Task.tryStopTask(flagRespawnTask);
 		Task.tryStopTask(suddenDeathTask);
 		Task.tryStopTask(foodTask);
+		Task.tryStopTask(invSaveTask);
 
 		ended = true;
 	}
@@ -428,6 +480,10 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	public void handleStandInteraction(Player player, CTFTeam clickedFlagTeam) {
 		if (getCarriedFlag(player) != null) {
+			return;
+		}
+
+		if (player.getGameMode() == GameMode.SPECTATOR || player.getGameMode() == GameMode.CREATIVE) {
 			return;
 		}
 
@@ -478,18 +534,15 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		event.setRespawnLocation(getActiveMap().getSpectatorLocation());
 		player.setGameMode(GameMode.SPECTATOR);
 
-		Bukkit.getScheduler().scheduleSyncDelayedTask(NovaCore.getInstance(), new Runnable() {
-			@Override
-			public void run() {
-				Log.trace(getName(), "Calling tpToSpectator(" + player.getName() + ")");
-				tpToSpectator(player);
-				teams.stream().filter(t -> t.isMember(player)).findFirst().ifPresent(team -> {
-					if (team.hasFlag()) {
-						Log.trace(getName(), "Calling delayedRespawn(" + player.getName() + ")");
-						delayedRespawn(player);
-					}
-				});
-			}
+		Bukkit.getScheduler().scheduleSyncDelayedTask(NovaCore.getInstance(), () -> {
+			Log.trace(getName(), "Calling tpToSpectator(" + player.getName() + ")");
+			tpToSpectator(player);
+			teams.stream().filter(t -> t.isMember(player)).findFirst().ifPresent(team -> {
+				if (team.hasFlag()) {
+					Log.trace(getName(), "Calling delayedRespawn(" + player.getName() + ")");
+					delayedRespawn(player);
+				}
+			});
 		}, 2L);
 	}
 
@@ -526,6 +579,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 		e.setKeepInventory(true);
 		e.getEntity().setGameMode(GameMode.SPECTATOR);
 		CTFFlag carried = getCarriedFlag(e.getEntity());
+
 		if (carried != null) {
 			if (e.getEntity().getKiller() != null) {
 				Player killer = e.getEntity().getKiller();
@@ -547,6 +601,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				carried.dropOnGround(true);
 			}
 		}
+		e.getEntity().spigot().respawn();
 	}
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -598,7 +653,7 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
 	public void onEntityDamagByEntity(EntityDamageByEntityEvent e) {
 		if (e.getEntity() instanceof ArmorStand && e.getDamager() instanceof Player) {
-			if(((Player)e.getDamager()).getGameMode() == GameMode.SPECTATOR) {
+			if(((Player)e.getDamager()).getGameMode() == GameMode.SPECTATOR || ((Player)e.getDamager()).getGameMode() == GameMode.CREATIVE) {
 				e.setCancelled(true);
 				return;
 			}
@@ -612,11 +667,11 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent e) {
 		if (e.getRightClicked() instanceof ArmorStand) {
-			if(e.getPlayer().getGameMode() == GameMode.SPECTATOR) {
+			if(e.getPlayer().getGameMode() == GameMode.SPECTATOR || e.getPlayer().getGameMode() == GameMode.CREATIVE) {
 				e.setCancelled(true);
 				return;
 			}
-			
+
 			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().orElse(null);
 			if (team != null) {
 				e.setCancelled(true);
@@ -627,12 +682,12 @@ public class CaptureTheFlag extends MapGame implements Listener {
 
 	@EventHandler(priority = EventPriority.NORMAL)
 	public void onPlayerArmorStandManipulate(PlayerArmorStandManipulateEvent e) {
-		if (e.getRightClicked() instanceof ArmorStand) {
-			if(e.getPlayer().getGameMode() == GameMode.SPECTATOR) {
+
+		if (e.getRightClicked() != null) {
+			if (e.getPlayer().getGameMode() == GameMode.SPECTATOR || e.getPlayer().getGameMode() == GameMode.CREATIVE) {
 				e.setCancelled(true);
 				return;
 			}
-			
 			CTFTeam team = teams.stream().filter(t -> t.getFlag().isEntityStand(e.getRightClicked())).findFirst().orElse(null);
 			if (team != null) {
 				e.setCancelled(true);
@@ -644,7 +699,33 @@ public class CaptureTheFlag extends MapGame implements Listener {
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
 	public void onInventoryClick(InventoryClickEvent e) {
 		if (started && !ended) {
-			if (e.getWhoClicked().getGameMode() != GameMode.CREATIVE) {
+			if (e.getSlotType() == InventoryType.SlotType.ARMOR) {
+				e.setCancelled(true);
+				return;
+			}
+
+			switch (e.getAction()) {
+				case PLACE_ALL:
+				case PICKUP_ALL:
+				case HOTBAR_SWAP:
+				case SWAP_WITH_CURSOR:
+				case MOVE_TO_OTHER_INVENTORY:
+				case HOTBAR_MOVE_AND_READD:
+				case COLLECT_TO_CURSOR:
+					e.setCancelled(false);
+					break;
+				default:
+					e.setCancelled(true);
+					break;
+			}
+		}
+	}
+
+	@EventHandler
+	public void onInventoryDrag(InventoryDragEvent e) {
+
+		if (e.getOldCursor().getType() == Material.WOOL) {
+			if (e.getType() != DragType.EVEN || e.getInventorySlots().size() != 1) {
 				e.setCancelled(true);
 			}
 		}
