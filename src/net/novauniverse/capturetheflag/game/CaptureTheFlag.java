@@ -596,7 +596,6 @@ public class CaptureTheFlag extends MapGame implements Listener {
 				carried.dropOnGround(true);
 			}
 		}
-		e.getEntity().spigot().respawn();
 	}
 
 	@EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
